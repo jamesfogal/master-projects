@@ -1,5 +1,5 @@
 # Master Todo List — All Projects
-*Last updated: 2026-06-17*
+*Last updated: 2026-07-07 (MONSTER migration reconciliation — Viktor)*
 *Rule: Never delete a completed item — strikethrough it instead.*
 *Rule: Nothing before June 15, 2026 counts.*
 *Rule: AI OS runs on EVERY page of EVERY project. No exceptions.*
@@ -24,12 +24,12 @@
 - [x] ~~Supabase `sb_secret_` key breaking database connection~~ **FIXED 2026-06-16 — `eyJ...` JWT key added to Vercel Production + Development**
 
 ### Infrastructure
-- [ ] Confirm PAGESPEED_API_KEY is set in Vercel → Settings → Environment Variables → Production (currently returning zeros)
-- [ ] Switch DNS on Namecheap from Netlify to Vercel — do AFTER PageSpeed confirmed working
+- [ ] Confirm PAGESPEED_API_KEY is set in Vercel → Settings → Environment Variables → Production (currently returning zeros) — **NOTE 2026-07-07 (Viktor): likely resolved by the 2026-06-25 PageSpeed Agent rebuild (50s timeout + fallback, see Session_Checkpoints); pending live re-verification**
+- [x] ~~Switch DNS on Namecheap from Netlify to Vercel — do AFTER PageSpeed confirmed working~~ **DONE 2026-06-25 — apex A → 216.150.1.1, www CNAME → ff2461497a9df4a9.vercel-dns-017.com; both domains Valid Configuration, site confirmed serving from Vercel (Session_Checkpoints 2026-06-25). Reconciled 2026-07-07 by Viktor.**
 - [ ] Add Sentry error monitoring — free tier 5k errors/month
 
 ### Bug Fixes
-- [ ] Fix H1 typo on home page: "Want the Fastest Websiteon Your Block?" — missing space between "Website" and "on"
+- [x] ~~Fix H1 typo on home page: "Want the Fastest Websiteon Your Block?" — missing space between "Website" and "on"~~ **CLAIM VERIFIED FALSE 2026-06-22 — evidence audit found the typo is not present in current code or even the old Netlify build (JUNE22_NOTES.md). Reconciled 2026-07-07 by Viktor.**
 
 ### PingClose Local Network — City Pages
 *City pages live under pingclose.com/[city]-[state] — NOT a separate domain*
