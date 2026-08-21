@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type { SessionRole } from "../lib/session-auth";
 import {
   AgentStatus,
   demoAgents,
@@ -12,6 +13,8 @@ import {
 } from "../lib/demo-data";
 
 type ViewId = (typeof navItems)[number][0];
+
+const memberViewIds: ViewId[] = ["command", "projects", "referrals"];
 
 type EvidenceItem = {
   id: string;
@@ -99,7 +102,7 @@ function OpportunityTable({ projects, onOpen }: { projects: Project[]; onOpen: (
   );
 }
 
-function CommandCenter({ projects, agents, evidenceCount, onOpen }: { projects: Project[]; agents: SourceAgent[]; evidenceCount: number; onOpen: (p: Project) => void }) {
+function CommandCenter({ projects, agents, evidenceCount, isSuperAdmin, onOpen }: { projects: Project[]; agents: SourceAgent[]; evidenceCount: number; isSuperAdmin: boolean; onOpen: (p: Project) => void }) {
   const healthy = agents.filter((agent) => agent.status === "healthy").length;
   const attention = agents.filter((agent) => agent.status === "attention" || agent.status === "blocked").length;
   const hotMatches = projects.flatMap((project) => project.matches).filter((match) => match.score >= 80).length;
@@ -133,7 +136,7 @@ function CommandCenter({ projects, agents, evidenceCount, onOpen }: { projects: 
 
       <section className="split-grid">
         <article className="panel signal-flow-panel">
-          <div className="panel-heading"><div><h2>Signal flow</h2><p>Last 7 days by source family</p></div><button className="text-button">View evidence queue →</button></div>
+          <div className="panel-heading"><div><h2>Signal flow</h2><p>Last 7 days by source family</p></div>{isSuperAdmin ? <button className="text-button">View evidence queue →</button> : <span className="text-chip">Evidence review is super admin only</span>}</div>
           {sourceFamilyTotals.map(([label, width, count]) => (
             <div className="signal-bar" key={String(label)}><span>{label}</span><div><i style={{ width: `${width}%` }} /></div><b>{count}</b></div>
           ))}
@@ -343,7 +346,19 @@ function AddSignalModal({ onClose, showToast, onSaved }: { onClose: () => void; 
   return <div className="drawer-backdrop modal-backdrop" onMouseDown={onClose}><form className="signal-modal" onSubmit={submit} onMouseDown={e => e.stopPropagation()}><div className="drawer-head"><div><span className="eyebrow">MEMBER OR MANUAL INTELLIGENCE</span><h2>Add a commercial signal</h2><p>It will attach to an existing building/project when the address and suite match.</p></div><button type="button" className="close-button" onClick={onClose}>×</button></div><div className="form-grid"><label>Street address<input name="address" required placeholder="123 Main Street" /></label><label>City<select name="city" required defaultValue=""><option value="" disabled>Select city</option><option>St. Charles</option><option>O’Fallon</option><option>St. Peters</option><option>Wentzville</option><option>Dardenne Prairie</option><option>Other county municipality</option></select></label><label>Suite / space<input name="suite" placeholder="Suite 200" /></label><label>Signal type<select name="signalType"><option>Member field signal</option><option>Permit or inspection</option><option>Tenant / license activity</option><option>Property / leasing activity</option><option>Utility activity</option><option>Other</option></select></label><label className="full-label">Business or project name<input name="name" placeholder="Known tenant, owner or development name" /></label><label className="full-label">What happened?<textarea name="detail" required placeholder="Describe the commercial activity and why it may create contractor work." /></label><label className="full-label">Evidence URL<input name="evidenceUrl" type="url" placeholder="https://…" /></label></div><div className="modal-actions"><button type="button" className="outline-button" onClick={onClose}>Cancel</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "Matching & scoring…" : "Save & score signal"}</button></div></form></div>;
 }
 
-export default function TransitionSphereApp() {
+export default function TransitionSphereApp({
+  role,
+}: {
+  role: SessionRole;
+}) {
+  const isSuperAdmin = role === "super_admin";
+  const accessibleNavItems = useMemo(
+    () =>
+      navItems.filter(([id]) =>
+        isSuperAdmin ? true : memberViewIds.includes(id),
+      ),
+    [isSuperAdmin],
+  );
   const [view, setView] = useState<ViewId>("command");
   const [agents, setAgents] = useState(demoAgents);
   const [projects, setProjects] = useState(demoProjects);
@@ -375,6 +390,11 @@ export default function TransitionSphereApp() {
     }
   }, []);
   const loadEvidence = useCallback(async () => {
+    if (!isSuperAdmin) {
+      setEvidence([]);
+      return;
+    }
+
     try {
       const response = await fetch("/api/evidence", { cache: "no-store" });
       const payload = await response.json() as { evidence?: EvidenceItem[] };
@@ -382,7 +402,7 @@ export default function TransitionSphereApp() {
     } catch {
       // A collector outage is shown on the agent screen; the rest of the app remains usable.
     }
-  }, []);
+  }, [isSuperAdmin]);
   const refreshAll = useCallback(async () => {
     await Promise.all([loadDashboard(), loadEvidence()]);
   }, [loadDashboard, loadEvidence]);
@@ -395,6 +415,11 @@ export default function TransitionSphereApp() {
     window.setTimeout(() => setToast(""), 4200);
   }
   async function runDueAgents() {
+    if (!isSuperAdmin) {
+      showToast("Run controls are reserved for the super admin session.");
+      return;
+    }
+
     if (agentsRunning) return;
     setAgentsRunning(true);
     showToast("Running each source independently and preserving every result…");
@@ -424,23 +449,23 @@ export default function TransitionSphereApp() {
     <aside className={`sidebar ${mobileNav ? 'mobile-open' : ''}`}>
       <div className="brand"><span className="brand-mark"><i /><i /><i /></span><div><strong>Commercial Transition Sphere</strong><small>Referral Verified</small></div><button className="mobile-close" onClick={() => setMobileNav(false)}>×</button></div>
       <div className="county-chip"><i />St. Charles County<span>LIVE SCOPE</span></div>
-      <nav>{navItems.map(item => <button key={item[0]} className={view === item[0] ? 'active' : ''} onClick={() => { setView(item[0]); setMobileNav(false); }}><span>{item[1]}</span>{item[2]}{item[0] === 'agents' && <em>56</em>}{item[0] === 'evidence' && <em>{evidence.length}</em>}</button>)}</nav>
-      <div className="sidebar-footer"><div className="system-state"><span><i />System ready</span><small>Commercial-only privacy rules active</small></div><button className="profile-button"><span>CTS</span><div><b>Commercial Transition Sphere</b><small>Administrator</small></div><i>⋮</i></button></div>
+      <nav>{accessibleNavItems.map(item => <button key={item[0]} className={view === item[0] ? 'active' : ''} onClick={() => { setView(item[0]); setMobileNav(false); }}><span>{item[1]}</span>{item[2]}{item[0] === 'agents' && <em>56</em>}{item[0] === 'evidence' && <em>{evidence.length}</em>}</button>)}</nav>
+      <div className="sidebar-footer"><div className="system-state"><span><i />System ready</span><small>Commercial-only privacy rules active</small></div><div className="profile-button"><span>CTS</span><div><b>Commercial Transition Sphere</b><small>{isSuperAdmin ? "Super admin session" : "Private member session"}</small></div><i>{isSuperAdmin ? "ALL" : "LIVE"}</i></div><form action="/api/session/logout" className="session-form" method="post"><button className="session-button" type="submit">Log out</button></form></div>
     </aside>
     <main className="main-shell">
-      <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}>☰</button><label className="global-search">⌕<input value={globalQuery} onChange={e => setGlobalQuery(e.target.value)} placeholder="Search address, tenant, trade or source…" />{globalQuery && <span>{matchingProjects.length} projects</span>}</label><div className="top-actions"><span className="last-refresh">Last refresh<br /><b>{lastRefresh}</b></span><button className="outline-button" onClick={() => setSignalOpen(true)}>＋ Add signal</button><button className="primary-button" disabled={agentsRunning} onClick={runDueAgents}><i className="run-dot" /> {agentsRunning ? "Agents working…" : "Run all agents"}</button></div></header>
+      <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}>☰</button><label className="global-search">⌕<input value={globalQuery} onChange={e => setGlobalQuery(e.target.value)} placeholder="Search address, tenant, trade or source…" />{globalQuery && <span>{matchingProjects.length} projects</span>}</label><div className="top-actions"><span className="access-pill">{isSuperAdmin ? "Super admin" : "Private member"}</span><span className="last-refresh">Last refresh<br /><b>{lastRefresh}</b></span>{isSuperAdmin && <button className="outline-button" onClick={() => setSignalOpen(true)}>＋ Add signal</button>}{isSuperAdmin && <button className="primary-button" disabled={agentsRunning} onClick={runDueAgents}><i className="run-dot" /> {agentsRunning ? "Agents working…" : "Run all agents"}</button>}</div></header>
       <div className="page-content">
-        {view === 'command' && <CommandCenter projects={globalQuery ? matchingProjects : projects} agents={agents} evidenceCount={evidence.length} onOpen={setSelectedProject} />}
-        {view === 'agents' && <AgentsView agents={agents} setAgents={setAgents} showToast={showToast} onRunComplete={refreshAll} />}
-        {view === 'evidence' && <EvidenceView evidence={evidence} onRefresh={refreshAll} showToast={showToast} />}
+        {view === 'command' && <CommandCenter projects={globalQuery ? matchingProjects : projects} agents={agents} evidenceCount={evidence.length} isSuperAdmin={isSuperAdmin} onOpen={setSelectedProject} />}
+        {view === 'agents' && isSuperAdmin && <AgentsView agents={agents} setAgents={setAgents} showToast={showToast} onRunComplete={refreshAll} />}
+        {view === 'evidence' && isSuperAdmin && <EvidenceView evidence={evidence} onRefresh={refreshAll} showToast={showToast} />}
         {view === 'projects' && <ProjectsView projects={projects} onOpen={setSelectedProject} />}
-        {view === 'members' && <MembersView />}
+        {view === 'members' && isSuperAdmin && <MembersView />}
         {view === 'referrals' && <ReferralsView projects={projects} onOpen={setSelectedProject} />}
-        {view === 'rules' && <RulesView />}
+        {view === 'rules' && isSuperAdmin && <RulesView />}
       </div>
     </main>
     {selectedProject && <ProjectDrawer project={selectedProject} onClose={() => setSelectedProject(null)} showToast={showToast} />}
-    {signalOpen && <AddSignalModal onClose={() => setSignalOpen(false)} showToast={showToast} onSaved={refreshAll} />}
+    {isSuperAdmin && signalOpen && <AddSignalModal onClose={() => setSignalOpen(false)} showToast={showToast} onSaved={refreshAll} />}
     {toast && <div className="toast"><span>✓</span>{toast}</div>}
   </div>;
 }

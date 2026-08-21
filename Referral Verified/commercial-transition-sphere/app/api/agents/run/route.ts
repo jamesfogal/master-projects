@@ -1,5 +1,5 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
 import { processQueuedAgents, queueDueAgents, runSourceAgent } from "../../../../lib/runtime-store";
+import { requireSession } from "../../../../lib/session-auth";
 
 type RunPayload = {
   sourceId?: string;
@@ -10,7 +10,12 @@ type RunPayload = {
 
 export async function POST(request: Request) {
   try {
-    await getChatGPTUser();
+    const auth = await requireSession("super_admin");
+
+    if (!auth.ok) {
+      return Response.json({ error: auth.error }, { status: auth.status });
+    }
+
     const payload = (await request.json()) as RunPayload;
     if (payload.sourceId) {
       return Response.json({ result: runSourceAgent(payload.sourceId) });

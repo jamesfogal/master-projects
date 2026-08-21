@@ -1,8 +1,14 @@
-import { getChatGPTUser } from "../../chatgpt-auth";
 import { approveEvidence, getEvidenceQueue, rejectEvidence } from "../../../lib/runtime-store";
+import { requireSession } from "../../../lib/session-auth";
 
 export async function GET() {
   try {
+    const auth = await requireSession("super_admin");
+
+    if (!auth.ok) {
+      return Response.json({ error: auth.error }, { status: auth.status });
+    }
+
     return Response.json({ evidence: getEvidenceQueue() });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Evidence queue unavailable" }, { status: 500 });
@@ -11,7 +17,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await getChatGPTUser();
+    const auth = await requireSession("super_admin");
+
+    if (!auth.ok) {
+      return Response.json({ error: auth.error }, { status: auth.status });
+    }
+
     const payload = (await request.json()) as {
       action?: "approve" | "reject";
       rawEventId?: string;
