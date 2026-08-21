@@ -1,0 +1,12 @@
+.openai
+.vinext
+build
+db
+drizzle
+examples
+outputs
+scripts
+tests
+work
+worker
+vite.config.ts
